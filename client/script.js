@@ -4,25 +4,28 @@ import user from "./assets/user.svg";
 const form = document.querySelector("form");
 const chatContainer = document.querySelector("#chat_container");
 
-let loadValue;
+let loadInterval;
 
-function loadMessage(ele) {
-  ele.textContent = "";
+function loader(element) {
+  element.textContent = "";
 
-  loadValue = setInterval(() => {
-    ele.textContent += ".";
+  loadInterval = setInterval(() => {
+    // Update the text content of the loading indicator
+    element.textContent += ".";
 
-    if (ele.textContent === "...") {
-      ele.textContent = "";
+    // If the loading indicator has reached three dots, reset it
+    if (element.textContent === "....") {
+      element.textContent = "";
     }
   }, 300);
 }
 
-function aiType(ele, text) {
+function typeText(element, text) {
   let index = 0;
+
   let interval = setInterval(() => {
     if (index < text.length) {
-      ele.innerHTML += text.charAt(index);
+      element.innerHTML += text.charAt(index);
       index++;
     } else {
       clearInterval(interval);
@@ -30,45 +33,46 @@ function aiType(ele, text) {
   }, 20);
 }
 
-function generateUnique() {
-  const timestap = Date.now();
-  const ranNumber = Math.random();
-  const hexaDecimalString = ranNumber.toString(16);
+// generate unique ID for each message div of bot
+// necessary for typing text effect for that specific reply
+// without unique ID, typing text will work on every element
+function generateUniqueId() {
+  const timestamp = Date.now();
+  const randomNumber = Math.random();
+  const hexadecimalString = randomNumber.toString(16);
 
-  return `id-${timestap}-${hexaDecimalString}`;
+  return `id-${timestamp}-${hexadecimalString}`;
 }
 
 function chatStripe(isAi, value, uniqueId) {
   return `
-    <div class="wrapper $(isAi && 'ai')">
-      <div class="chat">
-        <div class="profile">
-          <img src=${isAi ? bot : user} 
-          alt="${isAi ? bot : user}" />
+        <div class="wrapper ${isAi && "ai"}">
+            <div class="chat">
+                <div class="profile">
+                    <img 
+                      src=${isAi ? bot : user} 
+                      alt="${isAi ? "bot" : "user"}" 
+                    />
+                </div>
+                <div class="message" id=${uniqueId}>${value}</div>
+            </div>
         </div>
-        <div class="message" id=${uniqueId}> ${value} </div>
-      </div>
-    </div>
     `;
 }
 
 const handleSubmit = async (e) => {
-  //  When load form browser reload to solve
-
   e.preventDefault();
 
   const data = new FormData(form);
 
-  // User Chat Stripe
-
+  // user's chatstripe
   chatContainer.innerHTML += chatStripe(false, data.get("prompt"));
 
+  // to clear the textarea input
   form.reset();
 
-  // Bot Chat Stripe
-
-  const uniqueId = generateUnique();
-
+  // bot's chatstripe
+  const uniqueId = generateUniqueId();
   chatContainer.innerHTML += chatStripe(true, " ", uniqueId);
 
   // to focus scroll to the bottom
@@ -77,28 +81,27 @@ const handleSubmit = async (e) => {
   // specific message div
   const messageDiv = document.getElementById(uniqueId);
 
-  loadMessage(messageDiv);
-
-  // fetch data from server -> bot server
+  // messageDiv.innerHTML = "..."
+  loader(messageDiv);
 
   const response = await fetch("http://localhost:5000", {
     method: "POST",
     headers: {
-      "Content-Type": "appilcation/json",
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       prompt: data.get("prompt"),
     }),
   });
 
-  clearInterval(loadValue);
-  messageDiv.innerHTML = "";
+  clearInterval(loadInterval);
+  messageDiv.innerHTML = " ";
 
   if (response.ok) {
     const data = await response.json();
-    const parseData = data.bot.trim();
+    const parsedData = data.bot.trim(); // trims any trailing spaces/'\n'
 
-    aiType(messageDiv, parsedData);
+    typeText(messageDiv, parsedData);
   } else {
     const err = await response.text();
 
